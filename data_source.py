@@ -31,12 +31,13 @@ class Sqlite(DataStorage):
         self._path = path
         try:
             self._conn = sqlite3.connect(path)
-        except:
+        except ConnectionError:
             raise ConnectionError('Error connecting to DB ' + path)
 
-        create_string = "create table if not exists CrawlerTable (" + ', '.join([t[0] + " " +
-                                                                                 t[1] for t in sql_schema]) \
-                        + ", UNIQUE(path, file_name, hash))"
+        create_string = "create table if not exists CrawlerTable (" \
+                        + ', '.join([t[0] + " "
+                        + t[1] for t in sql_schema]) \
+                        + ", UNIQUE(path, file_name, file_hash))"
         self._conn.execute(create_string)
         self._cur = self._conn.cursor()
 
@@ -45,16 +46,18 @@ class Sqlite(DataStorage):
         for key, row in data.items():
             for file_object in row:
                 if self._check_validity(file_object):
-                    values.append("('{}', '{}', '{}', '{}')".format
+                    values.append("('{}', '{}', '{}', '{}', '{}')".format
                                   (file_object.path,
-                                   file_object.name,
+                                   file_object.file_name,
+                                   file_object.size_bytes,
                                    file_object.file_hash,
-                                   file_object.timestamp))
+                                   file_object.access_timestamp))
         if len(values):
             # replace w/
             # c.executemany('INSERT INTO stocks VALUES (?,?,?,?,?)', purchases)
             sql_string = "INSERT OR IGNORE INTO CrawlerTable (path, " \
-                         "file_name, hash, timestamp) VALUES " + ', '.join(values)
+                         "file_name, size_bytes, file_hash, access_timestamp) " \
+                         "VALUES " + ', '.join(values)
             self._cur.execute(sql_string)
         self._conn.commit()
 
@@ -64,9 +67,9 @@ class Sqlite(DataStorage):
         # the db an the rows are hence dismissed.
 
         if True in ["'" in t or '"' in t for t in [file_object.path,
-                                                   file_object.name,
+                                                   file_object.file_name,
                                                    file_object.file_hash,
-                                                   file_object.timestamp]]:
+                                                   file_object.access_timestamp]]:
             return False
         return True
 
@@ -77,7 +80,7 @@ class Sqlite(DataStorage):
 
     def delete(self, row):
         self._cur.execute("DELETE FROM CrawlerTable WHERE {}".format(
-        ' AND '.join([k + "='" + v + "'" for k, v in row.items()])))
+        ' AND '.join([k + "='" + str(v) + "'" for k, v in row.items()])))
         self._conn.commit()
 
     def close(self):

@@ -59,7 +59,9 @@ class Crawler(object):
                             continue
 
                     # Create FileObject with hashed values and timestamp
-                    files.append(FileObject(path, item, file_hash(full_path), str(datetime.datetime.now())))
+                    files.append(FileObject(path, item, os.path.getsize(full_path),
+                                            file_hash(full_path),
+                                            str(datetime.datetime.now())))
 
                 if os.path.isdir(full_path):
                     folders.append(item)
@@ -97,12 +99,12 @@ class Redeemer(object):
                 self._storage.delete(row)
             else:
                 if not file_hash('/'.join([row['path'], row['file_name']])) == \
-                       row['hash']:
+                       row['file_hash']:
                     self._storage.delete(row)
 
 
 if __name__ == "__main__":
-    p = Crawler("/Users/hendrik/Pictures", file_type_filter=["jpg", "JPG", "txt"],
+    p = Crawler("/Users/hendrik", file_type_filter=["jpg", "JPG", "txt"],
                 storage=ds.DSFactory.build_ds("sqlite", path="/Users/hendrik/test.db"))
     p.start()
     print(p.storage.total_file_count)
